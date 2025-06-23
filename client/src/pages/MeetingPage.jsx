@@ -24,185 +24,162 @@ const MeetingPage = () => {
     const socketRef = useRef(null);
 
     useEffect(() => {
-        // Generate a unique peer ID based on room and timestamp
-        const myPeerId = `${id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const peer = new Peer(myPeerId);
-        peerInstance.current = peer;
-
         const socket = io("https://dev-qq9j.onrender.com");
         socketRef.current = socket;
 
-        peer.on("open", (peerId) => {
-            console.log("My Peer ID:", peerId);
+        const peer = new Peer();
+        peerInstance.current = peer;
 
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then((userStream) => {
-                    setStream(userStream);
+        peer.on("open", async (peerId) => {
+            console.log("Peer opened with ID:", peerId);
 
-                    if (localVideoRef.current) {
-                        localVideoRef.current.srcObject = userStream;
-                        localVideoRef.current.play();
-                    }
-
-                    // Join room with peer ID
-                    socket.emit("join-room", { roomId: id, peerId });
-
-                    // Handle incoming calls
-                    peer.on("call", (incomingCall) => {
-                        console.log("Receiving call from:", incomingCall.peer);
-                        incomingCall.answer(userStream);
-                        currentCall.current = incomingCall;
-
-                        incomingCall.on("stream", (remoteStream) => {
-                            console.log("Received remote stream");
-                            if (remoteVideoRef.current) {
-                                remoteVideoRef.current.srcObject = remoteStream;
-                                remoteVideoRef.current.play();
-                                setRemoteConnected(true);
-                            }
-                        });
-
-                        incomingCall.on("close", () => {
-                            setRemoteConnected(false);
-                        });
-                    });
-                })
-                .catch((error) => {
-                    console.error("Error accessing media devices:", error);
+            try {
+                const userStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
                 });
-        });
 
-        // Handle user connection
-        socket.on("user-connected", (remotePeerId) => {
-            console.log("User connected:", remotePeerId);
+                setStream(userStream);
 
-            // Only call if we have a stream and no active call
-            if (stream && !currentCall.current) {
-                setTimeout(() => {
-                    console.log("Calling user:", remotePeerId);
-                    const call = peer.call(remotePeerId, stream);
+                if (localVideoRef.current) {
+                    localVideoRef.current.srcObject = userStream;
+                }
+
+                // Join room after getting stream
+                socket.emit("join-room", { roomId: id, peerId });
+
+                // Handle incoming calls
+                peer.on("call", (call) => {
+                    console.log("Answering incoming call");
+                    call.answer(userStream);
                     currentCall.current = call;
 
                     call.on("stream", (remoteStream) => {
-                        console.log("Received remote stream from call");
+                        console.log("Received remote stream");
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = remoteStream;
-                            remoteVideoRef.current.play();
                             setRemoteConnected(true);
                         }
                     });
+                });
 
-                    call.on("close", () => {
-                        setRemoteConnected(false);
-                    });
-                }, 1000); // Small delay to ensure both peers are ready
+            } catch (error) {
+                console.error("Error accessing media:", error);
             }
         });
 
-        // Handle user disconnection
-        socket.on("user-disconnected", (peerId) => {
-            console.log("User disconnected:", peerId);
+        // Handle new user joining
+        socket.on("user-connected", (remotePeerId) => {
+            console.log("New user connected:", remotePeerId);
+
+            if (stream) {
+                console.log("Calling new user");
+                const call = peer.call(remotePeerId, stream);
+                currentCall.current = call;
+
+                call.on("stream", (remoteStream) => {
+                    console.log("Received stream from outgoing call");
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.srcObject = remoteStream;
+                        setRemoteConnected(true);
+                    }
+                });
+            }
+        });
+
+        socket.on("user-disconnected", () => {
             setRemoteConnected(false);
-            if (currentCall.current) {
-                currentCall.current.close();
-                currentCall.current = null;
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = null;
             }
-        });
-
-        peer.on("error", (error) => {
-            console.error("Peer error:", error);
-        });
-
-        socket.on("connect_error", (error) => {
-            console.error("Socket connection error:", error);
         });
 
         return () => {
-            if (currentCall.current) {
-                currentCall.current.close();
-            }
+            currentCall.current?.close();
             peer.destroy();
             socket.disconnect();
-            stream?.getTracks().forEach((track) => track.stop());
+            stream?.getTracks().forEach(track => track.stop());
         };
     }, [id]);
 
     const toggleCamera = () => {
         if (stream) {
-            stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
-            setCameraOn((prev) => !prev);
+            stream.getVideoTracks().forEach(track => {
+                track.enabled = !track.enabled;
+            });
+            setCameraOn(prev => !prev);
         }
     };
 
     const toggleMic = () => {
         if (stream) {
-            stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
-            setMicOn((prev) => !prev);
+            stream.getAudioTracks().forEach(track => {
+                track.enabled = !track.enabled;
+            });
+            setMicOn(prev => !prev);
         }
     };
 
     const endCall = () => {
-        if (currentCall.current) {
-            currentCall.current.close();
-        }
-        if (socketRef.current) {
-            socketRef.current.emit("leave-room", { roomId: id });
-        }
-        stream?.getTracks().forEach((track) => track.stop());
+        currentCall.current?.close();
+        stream?.getTracks().forEach(track => track.stop());
+        socketRef.current?.disconnect();
         navigate("/");
     };
 
     return (
-        <div className="flex flex-col dark:bg-gray-900 h-190">
+        <div className="flex flex-col dark:bg-gray-900 h-screen">
             {!stream && (
-                <div className={`${codingStarted ? "w-1/2" : "w-full"} absolute inset-0 flex items-center justify-center bg-opacity-80 rounded`}>
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
                     <Loader />
                 </div>
             )}
+
             <div className="flex flex-1">
-                <div className={`${codingStarted ? "w-1/2" : "w-full"} flex flex-col items-center justify-center`}>
-                    <div className={`${codingStarted ? "flex-col-reverse" : ""} flex gap-4 mb-4 mt-5`}>
+                <div className={`${codingStarted ? "w-1/2" : "w-full"} flex flex-col items-center justify-center p-4`}>
+                    <div className="flex gap-4 mb-4">
                         <video
                             ref={localVideoRef}
-                            className={`${codingStarted && remoteConnected ? "h-40" : "h-auto"} w-full rounded`}
+                            className="w-80 h-60 bg-gray-800 rounded"
+                            autoPlay
                             playsInline
                             muted
-                        ></video>
+                        />
                         {remoteConnected && (
                             <video
                                 ref={remoteVideoRef}
-                                className={`${codingStarted ? "h-96" : "h-auto"} rounded`}
+                                className="w-80 h-60 bg-gray-800 rounded"
+                                autoPlay
                                 playsInline
-                            ></video>
+                            />
                         )}
                     </div>
+
                     {stream && (
-                        <div className="p-4 dark:bg-gray-800 flex gap-2 justify-end">
+                        <div className="flex gap-4">
                             <button
                                 onClick={toggleCamera}
-                                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 cursor-pointer"
+                                className={`p-3 rounded-full ${cameraOn ? 'bg-blue-500' : 'bg-red-500'} text-white`}
                             >
-                                {cameraOn ? <Camera className="w-8 h-8" /> : <CameraOff className="w-8 h-8" />}
+                                {cameraOn ? <Camera size={24} /> : <CameraOff size={24} />}
                             </button>
                             <button
                                 onClick={toggleMic}
-                                className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 cursor-pointer"
+                                className={`p-3 rounded-full ${micOn ? 'bg-green-500' : 'bg-red-500'} text-white`}
                             >
-                                {micOn ? <Mic className="w-8 h-8 text-white" /> : <MicOff className="w-8 h-8 text-white" />}
+                                {micOn ? <Mic size={24} /> : <MicOff size={24} />}
                             </button>
                             <button
                                 onClick={endCall}
-                                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 cursor-pointer"
+                                className="p-3 rounded-full bg-red-600 text-white"
                             >
-                                <Phone className="w-8 h-8 text-white" />
+                                <Phone size={24} />
                             </button>
                         </div>
                     )}
                 </div>
 
-                {codingStarted && (
-                    <CodePage />
-                )}
+                {codingStarted && <CodePage />}
             </div>
         </div>
     );
