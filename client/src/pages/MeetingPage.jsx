@@ -147,13 +147,13 @@ const MeetingPage = () => {
                             playsInline
                             muted
                         ></video>
-                        {remoteConnected && (
-                            <video
-                                ref={remoteVideoRef}
-                                className="w-full rounded"
-                                playsInline
-                            ></video>
-                        )}
+                        {/* {remoteConnected && ( */}
+                        <video
+                            ref={remoteVideoRef}
+                            className="w-full rounded"
+                            playsInline
+                        ></video>
+                        {/* )} */}
                     </div>
                     <div className="p-4 dark:bg-gray-800 flex gap-2 justify-end">
                         <button
