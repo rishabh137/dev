@@ -22,6 +22,7 @@ const MeetingPage = () => {
     const peerInstance = useRef(null);
     const socketRef = useRef(null);
     const callRefs = useRef({});
+    const pendingCalls = useRef([]);
 
     useEffect(() => {
         const peer = new Peer();
@@ -30,12 +31,24 @@ const MeetingPage = () => {
         const socket = io("https://dev-qq9j.onrender.com");
         socketRef.current = socket;
 
-        const pendingCalls = [];
+        // listen for incoming calls immediately
+        peer.on("call", (incomingCall) => {
+            if (!stream) {
+                console.log("No local stream yet, can't answer");
+                return;
+            }
+            incomingCall.answer(stream);
+            incomingCall.on("stream", (remoteStream) => {
+                remoteVideoRef.current.srcObject = remoteStream;
+                remoteVideoRef.current.play();
+                setRemoteConnected(true);
+            });
+        });
 
-        // Always register event listeners immediately
+        // listen for remote users joining
         socket.on("user-connected", (remotePeerId) => {
             console.log("Connecting to", remotePeerId);
-            if (stream) {
+            if (peerInstance.current && stream) {
                 const call = peerInstance.current.call(remotePeerId, stream);
                 if (call) {
                     callRefs.current[remotePeerId] = call;
@@ -46,47 +59,24 @@ const MeetingPage = () => {
                     });
                 }
             } else {
-                // If stream not ready, queue it
-                pendingCalls.push(remotePeerId);
+                pendingCalls.current.push(remotePeerId);
             }
         });
 
+        // peer open → get local stream
         peer.on("open", (peerId) => {
             console.log("My Peer ID:", peerId);
-
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            navigator.mediaDevices
+                .getUserMedia({ video: true, audio: true })
                 .then((userStream) => {
                     setStream(userStream);
                     localVideoRef.current.srcObject = userStream;
                     localVideoRef.current.play();
-
                     socket.emit("join-room", { roomId: id, peerId });
-
-                    // Answer incoming calls
-                    peer.on("call", (incomingCall) => {
-                        incomingCall.answer(userStream);
-                        incomingCall.on("stream", (remoteStream) => {
-                            remoteVideoRef.current.srcObject = remoteStream;
-                            remoteVideoRef.current.play();
-                            setRemoteConnected(true);
-                        });
-                    });
-
-                    // Process any pending calls received before stream was ready
-                    pendingCalls.forEach((remotePeerId) => {
-                        const call = peer.call(remotePeerId, userStream);
-                        if (call) {
-                            callRefs.current[remotePeerId] = call;
-                            call.on("stream", (remoteStream) => {
-                                remoteVideoRef.current.srcObject = remoteStream;
-                                remoteVideoRef.current.play();
-                                setRemoteConnected(true);
-                            });
-                        }
-                    });
                 });
         });
 
+        // handle user disconnects
         socket.on("user-disconnected", (peerId) => {
             console.log("Disconnected:", peerId);
             if (callRefs.current[peerId]) {
@@ -104,6 +94,23 @@ const MeetingPage = () => {
         };
     }, [id]);
 
+    // process pending calls when stream is ready
+    useEffect(() => {
+        if (stream && peerInstance.current) {
+            pendingCalls.current.forEach((remotePeerId) => {
+                const call = peerInstance.current.call(remotePeerId, stream);
+                if (call) {
+                    callRefs.current[remotePeerId] = call;
+                    call.on("stream", (remoteStream) => {
+                        remoteVideoRef.current.srcObject = remoteStream;
+                        remoteVideoRef.current.play();
+                        setRemoteConnected(true);
+                    });
+                }
+            });
+            pendingCalls.current = [];
+        }
+    }, [stream]);
 
     const toggleCamera = () => {
         stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
@@ -148,7 +155,6 @@ const MeetingPage = () => {
                             ></video>
                         )}
                     </div>
-
                     <div className="p-4 dark:bg-gray-800 flex gap-2 justify-end">
                         <button
                             onClick={toggleCamera}
