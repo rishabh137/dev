@@ -42,6 +42,19 @@ const MeetingPage = () => {
 
                     socket.emit("join-room", { roomId: id, peerId });
 
+                    // Now it's safe to listen for other connections
+                    socket.on("user-connected", (remotePeerId) => {
+                        console.log("Connecting to", remotePeerId);
+                        const call = peer.call(remotePeerId, userStream);
+                        callRefs.current[remotePeerId] = call;
+
+                        call.on("stream", (remoteStream) => {
+                            remoteVideoRef.current.srcObject = remoteStream;
+                            remoteVideoRef.current.play();
+                            setRemoteConnected(true);
+                        });
+                    });
+
                     peer.on("call", (incomingCall) => {
                         incomingCall.answer(userStream);
                         incomingCall.on("stream", (remoteStream) => {
@@ -51,6 +64,7 @@ const MeetingPage = () => {
                         });
                     });
                 });
+
         });
 
         socket.on("user-connected", (remotePeerId) => {
