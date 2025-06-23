@@ -29,7 +29,7 @@ const MeetingPage = () => {
         const peer = new Peer(myPeerId);
         peerInstance.current = peer;
 
-        const socket = io("https://codex-backend-1oau.onrender.com");
+        const socket = io("https://dev-qq9j.onrender.com");
         socketRef.current = socket;
 
         peer.on("open", (peerId) => {
