@@ -42,17 +42,6 @@ const MeetingPage = () => {
 
                     socket.emit("join-room", { roomId: id, peerId });
 
-                    socket.on("user-connected", (remotePeerId) => {
-                        console.log("Connecting to", remotePeerId);
-                        const call = peerInstance.current.call(remotePeerId, userStream);
-                        callRefs.current[remotePeerId] = call;
-
-                        call.on("stream", (remoteStream) => {
-                            remoteVideoRef.current.srcObject = remoteStream;
-                            remoteVideoRef.current.play();
-                            setRemoteConnected(true);
-                        });
-                    });
                     peer.on("call", (incomingCall) => {
                         incomingCall.answer(userStream);
                         incomingCall.on("stream", (remoteStream) => {
@@ -64,6 +53,17 @@ const MeetingPage = () => {
                 });
         });
 
+        socket.on("user-connected", (remotePeerId) => {
+            console.log("Connecting to", remotePeerId);
+            const call = peerInstance.current.call(remotePeerId, stream);
+            callRefs.current[remotePeerId] = call;
+
+            call.on("stream", (remoteStream) => {
+                remoteVideoRef.current.srcObject = remoteStream;
+                remoteVideoRef.current.play();
+                setRemoteConnected(true);
+            });
+        });
 
         socket.on("user-disconnected", (peerId) => {
             console.log("Disconnected:", peerId);
