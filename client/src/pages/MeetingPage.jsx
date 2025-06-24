@@ -31,10 +31,9 @@ const MeetingPage = () => {
         const socket = io("https://dev-qq9j.onrender.com");
         socketRef.current = socket;
 
-        // listen for incoming calls immediately
         peer.on("call", (incomingCall) => {
             if (!stream) {
-                console.log("No local stream yet, can't answer");
+                console.log("No local stream yet, cannot answer");
                 return;
             }
             incomingCall.answer(stream);
@@ -44,45 +43,36 @@ const MeetingPage = () => {
                     remoteVideoRef.current.play();
                     setRemoteConnected(true);
                 }
-
             });
         });
 
-        // listen for remote users joining
-        socket.on("user-connected", (remotePeerId) => {
-            console.log("Connecting to", remotePeerId);
-            if (peerInstance.current && stream) {
-                const call = peerInstance.current.call(remotePeerId, stream);
-                if (call) {
-                    callRefs.current[remotePeerId] = call;
-                    call.on("stream", (remoteStream) => {
-                        if (remoteVideoRef.current) {
-                            remoteVideoRef.current.srcObject = remoteStream;
-                            remoteVideoRef.current.play();
-                            setRemoteConnected(true);
-                        }
-
-                    });
-                }
-            } else {
-                pendingCalls.current.push(remotePeerId);
-            }
-        });
-
-        // peer open → get local stream
         peer.on("open", (peerId) => {
             console.log("My Peer ID:", peerId);
-            navigator.mediaDevices
-                .getUserMedia({ video: true, audio: true })
-                .then((userStream) => {
-                    setStream(userStream);
-                    localVideoRef.current.srcObject = userStream;
-                    localVideoRef.current.play();
-                    socket.emit("join-room", { roomId: id, peerId });
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((userStream) => {
+                setStream(userStream);
+                localVideoRef.current.srcObject = userStream;
+                localVideoRef.current.play();
+
+                socket.emit("join-room", { roomId: id, peerId });
+
+                // Listen for remote peers AFTER stream is ready
+                socket.on("user-connected", (remotePeerId) => {
+                    console.log("Connecting to", remotePeerId);
+                    const call = peer.call(remotePeerId, userStream);
+                    if (call) {
+                        callRefs.current[remotePeerId] = call;
+                        call.on("stream", (remoteStream) => {
+                            if (remoteVideoRef.current) {
+                                remoteVideoRef.current.srcObject = remoteStream;
+                                remoteVideoRef.current.play();
+                                setRemoteConnected(true);
+                            }
+                        });
+                    }
                 });
+            });
         });
 
-        // handle user disconnects
         socket.on("user-disconnected", (peerId) => {
             console.log("Disconnected:", peerId);
             if (callRefs.current[peerId]) {
@@ -99,6 +89,7 @@ const MeetingPage = () => {
             stream?.getTracks().forEach((track) => track.stop());
         };
     }, [id]);
+
 
     // process pending calls when stream is ready
     useEffect(() => {
