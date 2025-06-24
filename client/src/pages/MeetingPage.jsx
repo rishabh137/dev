@@ -39,9 +39,12 @@ const MeetingPage = () => {
             }
             incomingCall.answer(stream);
             incomingCall.on("stream", (remoteStream) => {
-                remoteVideoRef.current.srcObject = remoteStream;
-                remoteVideoRef.current.play();
-                setRemoteConnected(true);
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = remoteStream;
+                    remoteVideoRef.current.play();
+                    setRemoteConnected(true);
+                }
+
             });
         });
 
@@ -53,9 +56,12 @@ const MeetingPage = () => {
                 if (call) {
                     callRefs.current[remotePeerId] = call;
                     call.on("stream", (remoteStream) => {
-                        remoteVideoRef.current.srcObject = remoteStream;
-                        remoteVideoRef.current.play();
-                        setRemoteConnected(true);
+                        if (remoteVideoRef.current) {
+                            remoteVideoRef.current.srcObject = remoteStream;
+                            remoteVideoRef.current.play();
+                            setRemoteConnected(true);
+                        }
+
                     });
                 }
             } else {
@@ -102,9 +108,12 @@ const MeetingPage = () => {
                 if (call) {
                     callRefs.current[remotePeerId] = call;
                     call.on("stream", (remoteStream) => {
-                        remoteVideoRef.current.srcObject = remoteStream;
-                        remoteVideoRef.current.play();
-                        setRemoteConnected(true);
+                        if (remoteVideoRef.current) {
+                            remoteVideoRef.current.srcObject = remoteStream;
+                            remoteVideoRef.current.play();
+                            setRemoteConnected(true);
+                        }
+
                     });
                 }
             });
@@ -147,13 +156,13 @@ const MeetingPage = () => {
                             playsInline
                             muted
                         ></video>
-                        {/* {remoteConnected && ( */}
-                        <video
-                            ref={remoteVideoRef}
-                            className="w-full rounded"
-                            playsInline
-                        ></video>
-                        {/* )} */}
+                        {remoteConnected && (
+                            <video
+                                ref={remoteVideoRef}
+                                className="w-full rounded"
+                                playsInline
+                            ></video>
+                        )}
                     </div>
                     <div className="p-4 dark:bg-gray-800 flex gap-2 justify-end">
                         <button
