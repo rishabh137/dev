@@ -23,6 +23,7 @@ const MeetingPage = () => {
     const socketRef = useRef(null);
     const callRefs = useRef({});
     const pendingCalls = useRef([]);
+    const pendingIncomingCalls = useRef([]);
 
     useEffect(() => {
         const peer = new Peer();
@@ -33,44 +34,64 @@ const MeetingPage = () => {
 
         peer.on("call", (incomingCall) => {
             if (!stream) {
-                console.log("No local stream yet, cannot answer");
+                console.log("No local stream yet, queuing incoming call");
+                pendingIncomingCalls.current.push(incomingCall);
                 return;
             }
-            incomingCall.answer(stream);
-            incomingCall.on("stream", (remoteStream) => {
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remoteStream;
-                    remoteVideoRef.current.play();
-                    setRemoteConnected(true);
+            answerIncomingCall(incomingCall);
+        });
+
+        socket.on("user-connected", (remotePeerId) => {
+            console.log("Connecting to", remotePeerId);
+            if (peerInstance.current && stream) {
+                const call = peer.call(remotePeerId, stream);
+                if (call) {
+                    callRefs.current[remotePeerId] = call;
+                    call.on("stream", (remoteStream) => {
+                        if (remoteVideoRef.current) {
+                            remoteVideoRef.current.srcObject = remoteStream;
+                            remoteVideoRef.current.play();
+                            setRemoteConnected(true);
+                        }
+                    });
                 }
-            });
+            } else {
+                pendingCalls.current.push(remotePeerId);
+            }
         });
 
         peer.on("open", (peerId) => {
             console.log("My Peer ID:", peerId);
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((userStream) => {
-                setStream(userStream);
-                localVideoRef.current.srcObject = userStream;
-                localVideoRef.current.play();
+            navigator.mediaDevices
+                .getUserMedia({ video: true, audio: true })
+                .then((userStream) => {
+                    setStream(userStream);
+                    localVideoRef.current.srcObject = userStream;
+                    localVideoRef.current.play();
+                    socket.emit("join-room", { roomId: id, peerId });
 
-                socket.emit("join-room", { roomId: id, peerId });
+                    // Process any pending outgoing calls
+                    pendingCalls.current.forEach((remotePeerId) => {
+                        const call = peer.call(remotePeerId, userStream);
+                        if (call) {
+                            callRefs.current[remotePeerId] = call;
+                            call.on("stream", (remoteStream) => {
+                                if (remoteVideoRef.current) {
+                                    remoteVideoRef.current.srcObject = remoteStream;
+                                    remoteVideoRef.current.play();
+                                    setRemoteConnected(true);
+                                }
+                            });
+                        }
+                    });
+                    pendingCalls.current = [];
 
-                // Listen for remote peers AFTER stream is ready
-                socket.on("user-connected", (remotePeerId) => {
-                    console.log("Connecting to", remotePeerId);
-                    const call = peer.call(remotePeerId, userStream);
-                    if (call) {
-                        callRefs.current[remotePeerId] = call;
-                        call.on("stream", (remoteStream) => {
-                            if (remoteVideoRef.current) {
-                                remoteVideoRef.current.srcObject = remoteStream;
-                                remoteVideoRef.current.play();
-                                setRemoteConnected(true);
-                            }
-                        });
-                    }
+                    // Process any pending incoming calls
+                    pendingIncomingCalls.current.forEach((incomingCall) => {
+                        answerIncomingCall(incomingCall);
+                    });
+                    pendingIncomingCalls.current = [];
                 });
-            });
         });
 
         socket.on("user-disconnected", (peerId) => {
@@ -90,27 +111,16 @@ const MeetingPage = () => {
         };
     }, [id]);
 
-
-    // process pending calls when stream is ready
-    useEffect(() => {
-        if (stream && peerInstance.current) {
-            pendingCalls.current.forEach((remotePeerId) => {
-                const call = peerInstance.current.call(remotePeerId, stream);
-                if (call) {
-                    callRefs.current[remotePeerId] = call;
-                    call.on("stream", (remoteStream) => {
-                        if (remoteVideoRef.current) {
-                            remoteVideoRef.current.srcObject = remoteStream;
-                            remoteVideoRef.current.play();
-                            setRemoteConnected(true);
-                        }
-
-                    });
-                }
-            });
-            pendingCalls.current = [];
-        }
-    }, [stream]);
+    const answerIncomingCall = (call) => {
+        call.answer(stream);
+        call.on("stream", (remoteStream) => {
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remoteStream;
+                remoteVideoRef.current.play();
+                setRemoteConnected(true);
+            }
+        });
+    };
 
     const toggleCamera = () => {
         stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
@@ -160,7 +170,11 @@ const MeetingPage = () => {
                             onClick={toggleCamera}
                             className="bg-blue-500 text-white px-3 py-1 rounded"
                         >
-                            {cameraOn ? <Camera className="w-8 h-8" /> : <CameraOff className="w-8 h-8" />}
+                            {cameraOn ? (
+                                <Camera className="w-8 h-8" />
+                            ) : (
+                                <CameraOff className="w-8 h-8" />
+                            )}
                         </button>
                         <button
                             onClick={toggleMic}
