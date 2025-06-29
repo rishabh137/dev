@@ -110,9 +110,12 @@ const MeetingPage = () => {
                 <div className="w-full flex flex-col items-center justify-center">
                     <div className="flex gap-4 mb-4 mt-5">
                         <video ref={localVideoRef} className="w-full rounded" playsInline muted></video>
-                        {remoteConnected && (
-                            <video ref={remoteVideoRef} className="w-full rounded" playsInline></video>
-                        )}
+                        <video
+                            ref={remoteVideoRef}
+                            className={`w-full rounded ${remoteConnected ? '' : 'hidden'}`}
+                            playsInline
+                        ></video>
+
                     </div>
                     <div className="p-4 dark:bg-gray-800 flex gap-2 justify-end">
                         <button onClick={toggleCamera} className="bg-blue-500 text-white px-3 py-1 rounded">
