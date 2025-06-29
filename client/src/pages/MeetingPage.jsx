@@ -33,7 +33,6 @@ const MeetingPage = () => {
 
         peer.on("call", (incomingCall) => {
             if (!stream) {
-                r
                 console.log("No local stream yet, cannot answer");
                 return;
             }
