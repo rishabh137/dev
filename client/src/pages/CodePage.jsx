@@ -126,7 +126,7 @@ int main() {
     };
 
     return (
-        <div className="flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 w-1/2 h-200">
+        <div className="flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 w-1/2 h-220">
             <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-800">
                 <select
                     value={language}
