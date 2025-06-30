@@ -35,12 +35,10 @@ io.on("connection", (socket) => {
 
         const roomPeers = rooms.get(roomId);
 
-        // Send existing peers to new user
         roomPeers.forEach((existingPeerId) => {
             socket.emit("user-connected", existingPeerId);
         });
 
-        // Notify others about new user
         socket.to(roomId).emit("user-connected", peerId);
 
         roomPeers.add(peerId);
@@ -72,7 +70,11 @@ io.on("connection", (socket) => {
             }
         }
     });
+    socket.on("code-changed", ({ roomId, code }) => {
+        socket.to(roomId).emit("code-changed", code);
+    });
 });
+
 
 server.listen(PORT, () => {
     console.log(`Server running on ${PORT}`);

@@ -4,6 +4,7 @@ import axios from "axios";
 import { LoaderIcon } from "react-hot-toast";
 import io from "socket.io-client";
 import { useParams } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
 
 const CodePage = () => {
     const [socket, setSocket] = useState(null);
@@ -45,14 +46,22 @@ int main() {
         const newSocket = io("https://dev-qq9j.onrender.com");
         setSocket(newSocket);
 
-        newSocket.emit("join-room", roomId);
+        // Use a random peer ID for code collaboration as well
+        const peerId = uuidv4();
+        newSocket.emit("join-room", { roomId, peerId });
 
+        // Listen for code changes
         newSocket.on("code-changed", (newCode) => {
             setCode(newCode);
         });
 
         return () => newSocket.disconnect();
     }, [roomId]);
+
+    const handleEditorChange = (value) => {
+        setCode(value);
+        socket.emit("code-changed", { roomId, code: value });
+    };
 
     const handleRunCode = async () => {
         if (runCodingLoader == true) return;
@@ -139,10 +148,7 @@ int main() {
                     theme="vs-dark"
                     language={language}
                     value={code}
-                    onChange={(value) => {
-                        setCode(value);
-                        socket.emit("code-changed", { roomId, code: value });
-                    }}
+                    onChange={handleEditorChange}
                 />
             </div>
 
