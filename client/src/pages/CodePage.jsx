@@ -4,7 +4,6 @@ import axios from "axios";
 import { LoaderIcon } from "react-hot-toast";
 import io from "socket.io-client";
 import { useParams } from "react-router-dom";
-import { v4 as uuidv4 } from "uuid";
 
 const CodePage = () => {
     const [socket, setSocket] = useState(null);
