@@ -52,6 +52,10 @@ int main() {
             setCode(newCode);
         });
 
+        newSocket.on("code-output", (output) => {
+            setOutput(output);
+        });
+
         return () => newSocket.disconnect();
     }, [roomId]);
 
@@ -101,12 +105,16 @@ int main() {
                     clearInterval(interval);
                     if (res.data.stdout) {
                         setOutput(res.data.stdout);
+                        socket.emit("run-code", { roomId, output: res.data.stdout });
                     } else if (res.data.compile_output) {
                         setOutput(res.data.compile_output);
+                        socket.emit("run-code", { roomId, output: res.data.compile_output });
                     } else if (res.data.stderr) {
                         setOutput(res.data.stderr);
+                        socket.emit("run-code", { roomId, output: res.data.stderr });
                     } else {
                         setOutput("No Output.");
+                        socket.emit("run-code", { roomId, output: "No Output." });
                     }
                     setRunCodingLoader(false);
                 }
