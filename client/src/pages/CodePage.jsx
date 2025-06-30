@@ -46,11 +46,9 @@ int main() {
         const newSocket = io("https://dev-qq9j.onrender.com");
         setSocket(newSocket);
 
-        // Use a random peer ID for code collaboration as well
-        const peerId = uuidv4();
+        const peerId = crypto.randomUUID();
         newSocket.emit("join-room", { roomId, peerId });
 
-        // Listen for code changes
         newSocket.on("code-changed", (newCode) => {
             setCode(newCode);
         });
