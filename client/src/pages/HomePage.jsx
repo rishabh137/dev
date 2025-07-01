@@ -32,7 +32,7 @@ const HomePage = () => {
     return (
         <>
             <div className="flex flex-1">
-                <div className={`h-190 flex flex-col items-center justify-center bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-6 ${codingStarted ? "w-1/2" : "w-full"}`}>
+                <div className={`h-190 flex flex-col items-center justify-center bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-6 w-full`}>
 
                     <HomeContent />
 
