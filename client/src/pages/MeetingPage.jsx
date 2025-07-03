@@ -112,7 +112,7 @@ const MeetingPage = () => {
                         <video ref={localVideoRef} className={`rounded ${codingStarted && remoteConnected ? 'h-[245px]' : ''}`} playsInline muted></video>
                         <video
                             ref={remoteVideoRef}
-                            className={`rounded ${remoteConnected ? '' : 'hidden'} ${codingStarted ? 'h-[400px]' : 'h-full w-[700px]'}`}
+                            className={`rounded ${remoteConnected ? '' : 'hidden'} ${codingStarted ? 'h-[400px]' : 'h-full'}`}
                             playsInline
                         ></video>
 
